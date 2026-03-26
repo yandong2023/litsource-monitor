@@ -60,11 +60,21 @@ done
 
 # 发送到飞书
 echo "Sending to Feishu..."
-CONTENT=$(head -c 3500 "$BRIEF_FILE" | sed 's/"/\\"/g' | tr '\n' ' ')
+
+# 提取关键内容（限制长度，避免格式错误）
+CONTENT=$(head -n 30 "$BRIEF_FILE" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/ /g' | tr '\n' ' ')
+
+# 如果内容太长，截断
+if [ ${#CONTENT} -gt 3000 ]; then
+    CONTENT="${CONTENT:0:3000}... [truncated]"
+fi
+
+# 构建 JSON 并发送
+JSON_PAYLOAD="{\"msg_type\":\"text\",\"content\":{\"text\":\"$CONTENT\"}}"
 
 curl -s -X POST "$FEISHU_WEBHOOK" \
     -H "Content-Type: application/json" \
-    -d "{\"msg_type\":\"text\",\"content\":{\"text\":\"$CONTENT\"}}" \
+    -d "$JSON_PAYLOAD" \
     || echo "Failed to send Feishu notification"
 
 # 清理
