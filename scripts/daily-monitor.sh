@@ -18,16 +18,17 @@ fi
 # 创建工作目录
 mkdir -p "$WORK_DIR"
 
-# 安装 last30days-skill
-echo "Installing last30days-skill..."
-git clone --depth 1 https://github.com/mvanhorn/last30days-skill.git "$WORK_DIR/last30days" 2>/dev/null || true
+# 安装 last30days-skill（使用 fork 版本支持 Kimi）
+echo "Installing last30days-skill (Kimi-compatible fork)..."
+git clone --depth 1 https://github.com/yandong2023/last30days-skill.git "$WORK_DIR/last30days" 2>/dev/null || true
 cd "$WORK_DIR/last30days"
 pip install -q -r requirements.txt 2>/dev/null || true
 
-# 写入环境配置（如果有 API keys）
+# 写入环境配置（支持 Kimi/DeepSeek 等 OpenAI-compatible API）
 if [ -n "$OPENAI_API_KEY" ] || [ -n "$XAI_API_KEY" ]; then
     cat > "$WORK_DIR/last30days/.env" << EOF
 OPENAI_API_KEY=${OPENAI_API_KEY:-}
+OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
 XAI_API_KEY=${XAI_API_KEY:-}
 AUTH_TOKEN=${AUTH_TOKEN:-}
 CT0=${CT0:-}
