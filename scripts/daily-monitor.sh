@@ -34,8 +34,8 @@ KEYWORDS=(
 for keyword in "${KEYWORDS[@]}"; do
     echo "Researching: $keyword..."
     
-    # 运行 last30days（只用 HN，免费）
-    python3 scripts/last30days.py --sources=hackernews "$keyword" > "$WORK_DIR/${keyword// /_}.txt" 2>&1 || true
+    # 运行 last30days（默认模式，包含 HN）
+    python3 scripts/last30days.py --quick "$keyword" > "$WORK_DIR/${keyword// /_}.txt" 2>&1 || true
     
     # 添加到简报
     emoji="🔍"
