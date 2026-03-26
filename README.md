@@ -1,84 +1,129 @@
 # LitSource Daily Monitor
 
-基于 [last30days-skill](https://github.com/mvanhorn/last30days-skill) 的每日研究监控系统，专门追踪引用验证、学术诚信相关话题。
+基于 [last30days-skill](https://github.com/mvanhorn/last30days-skill) 的每日研究监控系统，追踪引用验证、学术诚信相关话题。
 
 ## 监控内容
 
-| 关键词 | 用途 |
-|--------|------|
-| **citation verification** | 引用验证工具讨论 |
-| **hallucinated citation** | AI 生成虚假引用话题 |
-| **RefChecker** | 竞品动态 |
-| **SourceVerify** | 竞品动态 |
+### 关键词分组
+
+| 分组 | 关键词 | 用途 |
+|------|--------|------|
+| **学术术语** | citation verification, reference checker | 学术圈正式讨论 |
+| **社交媒体** | fake citation, AI hallucination paper, made up reference, ChatGPT fake source | Reddit/Twitter 口语化讨论 |
+| **竞品监控** | RefChecker, SourceVerify, VeriExCite, Citalyze | 竞品动态 |
 
 ## 数据源
 
-- ✅ **Hacker News** (免费) - 技术社区讨论
-- ⏳ **Brave Web Search** (需 API Key) - 网页搜索
-- ⏳ **Reddit** (需 ScrapeCreators/OpenAI) - 社区讨论
+| 平台 | 状态 | 所需配置 |
+|------|------|----------|
+| **Hacker News** | ✅ 免费可用 | 无需配置 |
+| **Reddit** | ⚡ 需 OpenAI API | `OPENAI_API_KEY` |
+| **Twitter/X** | ⚡ 需 xAI API 或 Cookie | `XAI_API_KEY` 或 `AUTH_TOKEN/CT0` |
+| **Web** | ✅ 助手搜索 | 无需配置 |
 
-## 部署步骤
+## 快速开始
 
-### 1. Fork/创建仓库
+### 1. 基础配置（免费版 - HN 数据）
 
-将本仓库推送到你的 GitHub 账号。
+已部署，每天 10:00 自动运行，无需额外配置。
 
-### 2. 配置飞书 Webhook
+### 2. 完整配置（推荐 - Reddit + Twitter）
 
-1. 打开你的飞书群
-2. 设置 → 群机器人 → 添加机器人 → **自定义机器人**
-3. 复制 Webhook URL
+#### 方式 A：OpenAI API（解锁 Reddit）
 
-### 3. 配置 GitHub Secrets
+```bash
+# 1. 创建配置目录
+mkdir -p ~/.config/litsource-monitor
 
-进入仓库 → Settings → Secrets and variables → Actions → New repository secret：
+# 2. 创建配置文件
+cat > ~/.config/litsource-monitor/.env << 'EOF'
+OPENAI_API_KEY=sk-your-key-here
+EOF
 
-| Secret Name | Value |
-|-------------|-------|
-| `FEISHU_WEBHOOK` | 你的飞书机器人 Webhook URL |
+# 3. 测试运行
+bash scripts/daily-monitor.sh
+```
 
-### 4. 手动测试
+#### 方式 B：xAI API（解锁 Twitter）
 
-进入仓库 → Actions → Daily Research Monitor → Run workflow
+```bash
+cat > ~/.config/litsource-monitor/.env << 'EOF'
+XAI_API_KEY=xai-your-key-here
+EOF
+```
 
-等待 2-3 分钟，检查飞书是否收到消息。
+#### 方式 C：Twitter Cookie（免费解锁 Twitter）
 
-### 5. 自动运行
+```bash
+# 1. 浏览器登录 x.com
+# 2. F12 → Application → Cookies → x.com
+# 3. 复制 auth_token 和 ct0
 
-配置完成后，每天北京时间 **10:00** 会自动运行并推送简报。
+cat > ~/.config/litsource-monitor/.env << 'EOF'
+AUTH_TOKEN=your-auth-token
+CT0=your-ct0-value
+EOF
+```
 
-## 添加监控关键词
+## 定时任务
 
-编辑 `.github/workflows/daily-monitor.yml`，复制一段 Research 步骤，修改关键词即可。
+已配置 OpenClaw 定时任务：
+- **ID**: a13cd6af-e9e5-4d71-8aa4-1f659a732232
+- **时间**: 每天 10:00（北京时间）
+- **命令**: `bash /root/.openclaw/workspace/litsource-monitor/scripts/daily-monitor.sh`
 
-## 费用
+### 查看/修改定时任务
 
-当前配置：**完全免费**
-- Hacker News API：免费
-- GitHub Actions：每月 2000 分钟免费额度（足够用）
+```bash
+# 查看所有定时任务
+openclaw cron list
 
-## 升级选项
+# 手动触发运行
+openclaw cron trigger a13cd6af-e9e5-4d71-8aa4-1f659a732232
 
-| 数据源 | 费用 | 配置方式 |
-|--------|------|----------|
-| Brave Web Search | 免费（2000次/月） | 添加 `BRAVE_API_KEY` 到 Secrets |
-| ScrapeCreators | $29/月 | 添加 `SCRAPECREATORS_API_KEY` 到 Secrets |
-| OpenAI API | 按量付费 | 添加 `OPENAI_API_KEY` 到 Secrets |
+# 删除任务（如需重新配置）
+openclaw cron remove a13cd6af-e9e5-4d71-8aa4-1f659a732232
+```
 
-## 查看历史简报
+## 查看结果
 
-每次运行会生成 Artifact，可在 Actions 页面下载历史报告。
+每天 10:00 飞书群收到简报，包含：
+- 各关键词的搜索结果统计
+- HN/Reddit/Twitter 相关讨论摘要
+- 竞品动态更新
+
+## 费用预估
+
+| 配置 | 月费用 | 覆盖数据源 |
+|------|--------|-----------|
+| **免费版** | $0 | HN + Web |
+| **Reddit 版** | ~$3-5 | HN + Reddit + Web |
+| **完整版** | ~$8-15 | HN + Reddit + Twitter + Web |
+
+## 关键词优化建议
+
+如果某关键词长期无结果，尝试：
+1. **更口语化**: `"citation verification"` → `"fake citation"`
+2. **加场景**: `"AI paper"` → `"ChatGPT fake source"`
+3. **去学术**: `"reference checker"` → `"made up reference"`
 
 ## 故障排查
 
-### 没有收到飞书消息
-1. 检查 `FEISHU_WEBHOOK` 是否正确配置
-2. 查看 Actions 日志中的 "Send to Feishu" 步骤
-3. 确认飞书机器人没有被禁言
+### Reddit 搜索失败
+- 检查 `OPENAI_API_KEY` 是否配置正确
+- 确认 API key 有余额
 
-### 数据太少
-- Hacker News 对某些话题讨论较少，这是正常的
-- 可考虑添加 Brave API Key 扩展数据源
+### Twitter 搜索失败
+- 如果使用 Cookie 方式，检查是否过期（需重新登录获取）
+- 如果使用 xAI，确认 `XAI_API_KEY` 有效
+
+### 飞书收不到消息
+- 检查 Webhook URL 是否正确
+- 确认飞书机器人未被禁言
+
+## GitHub 仓库
+
+https://github.com/yandong2023/litsource-monitor
 
 ---
 
