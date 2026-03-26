@@ -1,0 +1,90 @@
+name: Daily Research Monitor
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # 每天北京时间 10:00 运行
+  workflow_dispatch:  # 支持手动触发
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      
+      - name: Install last30days-skill
+        run: |
+          git clone https://github.com/mvanhorn/last30days-skill.git /tmp/last30days
+          cd /tmp/last30days
+          pip install -r requirements.txt
+      
+      - name: Research — Citation Verification
+        run: |
+          cd /tmp/last30days
+          python3 scripts/last30days.py --sources=hackernews "citation verification" > /tmp/result1.txt 2>&1 || true
+          echo "### 🔍 Citation Verification" > /tmp/brief.md
+          echo "" >> /tmp/brief.md
+          head -80 /tmp/result1.txt >> /tmp/brief.md
+          echo "" >> /tmp/brief.md
+          echo "---" >> /tmp/brief.md
+          echo "" >> /tmp/brief.md
+      
+      - name: Research — Hallucinated Citation
+        run: |
+          cd /tmp/last30days
+          python3 scripts/last30days.py --sources=hackernews "hallucinated citation" > /tmp/result2.txt 2>&1 || true
+          echo "### 🤖 Hallucinated Citation" >> /tmp/brief.md
+          echo "" >> /tmp/brief.md
+          head -80 /tmp/result2.txt >> /tmp/brief.md
+          echo "" >> /tmp/brief.md
+          echo "---" >> /tmp/brief.md
+          echo "" >> /tmp/brief.md
+      
+      - name: Research — RefChecker
+        run: |
+          cd /tmp/last30days
+          python3 scripts/last30days.py --sources=hackernews "RefChecker" > /tmp/result3.txt 2>&1 || true
+          echo "### 🛠️ RefChecker" >> /tmp/brief.md
+          echo "" >> /tmp/brief.md
+          head -80 /tmp/result3.txt >> /tmp/brief.md
+          echo "" >> /tmp/brief.md
+          echo "---" >> /tmp/brief.md
+          echo "" >> /tmp/brief.md
+      
+      - name: Research — SourceVerify
+        run: |
+          cd /tmp/last30days
+          python3 scripts/last30days.py --sources=hackernews "SourceVerify" > /tmp/result4.txt 2>&1 || true
+          echo "### 🔎 SourceVerify" >> /tmp/brief.md
+          echo "" >> /tmp/brief.md
+          head -80 /tmp/result4.txt >> /tmp/brief.md
+      
+      - name: Upload Brief as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-brief-$(date +%Y%m%d)
+          path: /tmp/brief.md
+          retention-days: 30
+      
+      - name: Prepare Feishu Message
+        if: ${{ secrets.FEISHU_WEBHOOK != '' }}
+        run: |
+          # 截取前 4000 字符，避免飞书消息过长
+          CONTENT=$(head -c 4000 /tmp/brief.md)
+          
+          # 转义特殊字符
+          CONTENT=$(echo "$CONTENT" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | tr '\n' ' ')
+          
+          # 构建 JSON
+          echo "{\"msg_type\":\"text\",\"content\":{\"text\":\"📊 LitSource Daily Brief — $(date +%Y-%m-%d)\\n\\n$CONTENT\"}}" > /tmp/feishu_payload.json
+      
+      - name: Send to Feishu
+        if: ${{ secrets.FEISHU_WEBHOOK != '' }}
+        run: |
+          curl -X POST "${{ secrets.FEISHU_WEBHOOK }}" \
+            -H "Content-Type: application/json" \
+            -d @/tmp/feishu_payload.json \
+            || echo "⚠️ Feishu notification failed, but workflow continued"
