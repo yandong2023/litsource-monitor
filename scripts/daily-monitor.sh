@@ -61,21 +61,49 @@ done
 # 发送到飞书
 echo "Sending to Feishu..."
 
-# 提取关键内容（限制长度，避免格式错误）
-CONTENT=$(head -n 30 "$BRIEF_FILE" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/ /g' | tr '\n' ' ')
+# 保存简报路径供 Python 使用
+BRIEF_PATH="$BRIEF_FILE"
 
-# 如果内容太长，截断
-if [ ${#CONTENT} -gt 3000 ]; then
-    CONTENT="${CONTENT:0:3000}... [truncated]"
-fi
+# 使用 Python 安全地构建 JSON 并发送
+python3 << EOF
+import json
+import urllib.request
+import sys
 
-# 构建 JSON 并发送
-JSON_PAYLOAD="{\"msg_type\":\"text\",\"content\":{\"text\":\"$CONTENT\"}}"
+webhook = "https://open.feishu.cn/open-apis/bot/v2/hook/657d16d5-79d1-4150-b869-11383208a8d8"
+brief_path = """$BRIEF_PATH"""
 
-curl -s -X POST "$FEISHU_WEBHOOK" \
-    -H "Content-Type: application/json" \
-    -d "$JSON_PAYLOAD" \
-    || echo "Failed to send Feishu notification"
+# 读取简报内容
+with open(brief_path, "r", encoding="utf-8") as f:
+    content = f.read()
+
+# 限制长度
+if len(content) > 3000:
+    content = content[:3000] + "... [truncated]"
+
+# 构建消息
+payload = {
+    "msg_type": "text",
+    "content": {
+        "text": content
+    }
+}
+
+# 发送
+try:
+    req = urllib.request.Request(
+        webhook,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST"
+    )
+    with urllib.request.urlopen(req) as resp:
+        print(resp.read().decode())
+        print("Message sent successfully")
+except Exception as e:
+    print(f"Failed to send: {e}")
+    sys.exit(1)
+EOF
 
 # 清理
 rm -rf "$WORK_DIR"
